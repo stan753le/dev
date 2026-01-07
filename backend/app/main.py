@@ -11,6 +11,9 @@ from app.models import (
 from app.recommender import recommender_engine
 from app.cf_recommender import cf_recommender
 from app.cold_start import cold_start_handler
+from app.matrix_factorization import als_recommender
+from app.hybrid_recommender import hybrid_recommender
+from app.explanation_engine import explanation_engine
 from typing import List
 import json
 
@@ -30,11 +33,15 @@ async def startup_event():
     programs = result.data
     if programs:
         recommender_engine.fit(programs)
-    # try to fit collaborative model (uses feedback/recommendations tables)
+
     try:
         cf_recommender.fit()
     except Exception:
-        # don't block startup if CF fails
+        pass
+
+    try:
+        als_recommender.fit()
+    except Exception:
         pass
 
 @app.get("/")
@@ -167,30 +174,28 @@ def get_recommendations(request: RecommendationRequest):
 
         recommender_engine.fit(programs)
 
-        content_recs = recommender_engine.recommend(
+        try:
+            als_recommender.fit()
+        except Exception:
+            pass
+
+        hybrid_recs = hybrid_recommender.recommend(
             student_data,
-            top_k=request.top_k
+            programs,
+            top_k=request.top_k,
+            apply_diversity=True
         )
 
-        try:
-            cf_scores = cf_recommender.recommend_for_student(request.student_id, programs, top_k=request.top_k)
-        except Exception:
-            cf_scores = {}
-
-        alpha = 0.6
-
         response_recommendations = []
-        for program, content_score, explanation in content_recs:
+        for program, final_score, explanation in hybrid_recs:
             pid = program['id']
-            cf_score = cf_scores.get(pid, 0.0)
-            final_score = float(alpha * content_score + (1 - alpha) * cf_score)
 
             rec_data = {
                 "student_id": request.student_id,
                 "program_id": pid,
                 "score": final_score,
                 "explanation": explanation,
-                "algorithm": "hybrid"
+                "algorithm": "hybrid_enhanced"
             }
 
             try:
@@ -234,9 +239,9 @@ def submit_feedback(student_id: str, feedback: FeedbackSubmit):
 
         result = supabase.table("feedback").insert(feedback_data).execute()
 
-        # optionally trigger a background retrain signal (lightweight)
         try:
             cf_recommender.fit()
+            als_recommender.fit()
         except Exception:
             pass
 
@@ -251,7 +256,13 @@ def submit_feedback(student_id: str, feedback: FeedbackSubmit):
 def retrain_models():
     try:
         cf_recommender.fit()
-        return {"status": "ok", "cf_trained": cf_recommender.fitted}
+        als_success = als_recommender.fit()
+
+        return {
+            "status": "ok",
+            "cf_trained": cf_recommender.fitted,
+            "als_trained": als_success
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -394,5 +405,54 @@ def get_analytics_dashboard():
             "top_performing_programs": top_programs,
             "total_programs": len(program_performance['programs'])
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/students/{student_id}/recommendation-strategy")
+def get_recommendation_strategy(student_id: str):
+    try:
+        strategy_info = hybrid_recommender.explain_recommendation_weights(student_id)
+        return strategy_info
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/programs/{program_id}/similar")
+def get_similar_programs(program_id: str, limit: int = 5):
+    try:
+        if not als_recommender.fitted:
+            raise HTTPException(
+                status_code=503,
+                detail="Collaborative filtering model not yet trained. Need more user feedback."
+            )
+
+        similar = als_recommender.get_similar_items(program_id, top_k=limit)
+
+        if not similar:
+            return {"similar_programs": []}
+
+        programs_result = supabase.table("programs").select("*").in_(
+            "id", [pid for pid, _ in similar]
+        ).execute()
+
+        program_map = {p['id']: p for p in programs_result.data}
+
+        similar_programs = []
+        for pid, similarity in similar:
+            if pid in program_map:
+                prog = program_map[pid]
+                similar_programs.append({
+                    "program_id": pid,
+                    "program_name": prog['name'],
+                    "program_description": prog['description'],
+                    "similarity_score": round(similarity, 3),
+                    "tags": prog.get('tags', []),
+                    "skills": prog.get('skills', [])
+                })
+
+        return {"similar_programs": similar_programs}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

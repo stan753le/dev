@@ -4,10 +4,15 @@ A Netflix/Amazon-style recommendation system that matches student interests and 
 
 ## Features
 
-- **Content-Based Recommendation Engine**: Uses TF-IDF and cosine similarity to match student profiles with study programs
+- **Advanced Hybrid Recommendation Engine**: Combines content-based filtering with ALS matrix factorization
+- **Adaptive Weighting**: Intelligently balances content and collaborative signals based on user experience
+- **Enhanced Explanations**: Multi-faceted reasoning that explains why programs are recommended
+- **Diversity Boosting**: Prevents filter bubbles by ensuring variety in recommendations
 - **Interactive Questionnaire**: Simple UI for students to input their interests and grades
-- **Personalized Recommendations**: Provides top 5 program recommendations with explanations
-- **Feedback Collection**: Captures user interactions (clicks, ratings, acceptance) for future improvements
+- **Personalized Recommendations**: Provides top 5 program recommendations with sophisticated explanations
+- **Feedback Collection**: Captures user interactions (clicks, ratings, acceptance) for continuous learning
+- **Similar Programs Discovery**: Find programs similar to ones you're interested in
+- **Transparent Strategy**: See how your recommendations are being calculated
 - **RESTful API**: FastAPI backend with comprehensive endpoints
 - **Modern UI**: React-based frontend with responsive design
 - **Docker Support**: Easy deployment with Docker and Docker Compose
@@ -16,12 +21,17 @@ A Netflix/Amazon-style recommendation system that matches student interests and 
 
 ### Backend (FastAPI + Python)
 - **Content-Based Recommender**: TF-IDF vectorization with cosine similarity
+- **Collaborative Filtering**: ALS (Alternating Least Squares) matrix factorization
+- **Hybrid System**: Adaptive weighting based on user experience
+- **Explanation Engine**: Multi-faceted reasoning for transparency
 - **Database**: Supabase PostgreSQL with Row Level Security
 - **API Endpoints**:
   - Create/update student profiles
-  - Get personalized recommendations
-  - Submit feedback
+  - Get personalized hybrid recommendations
+  - Submit feedback and retrain models
   - Retrieve program catalog
+  - Get recommendation strategy (transparency)
+  - Find similar programs
 
 ### Frontend (React + TypeScript)
 - Interest selection interface
@@ -219,13 +229,19 @@ project/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py
-│   │   ├── main.py           # FastAPI application
-│   │   ├── config.py         # Configuration
-│   │   ├── database.py       # Supabase client
-│   │   ├── models.py         # Pydantic models
-│   │   └── recommender.py    # Recommendation engine
-│   ├── seed_data.py          # Database seeding script
-│   ├── requirements.txt      # Python dependencies
+│   │   ├── main.py                    # FastAPI application
+│   │   ├── config.py                  # Configuration
+│   │   ├── database.py                # Supabase client
+│   │   ├── models.py                  # Pydantic models
+│   │   ├── recommender.py             # Content-based recommender
+│   │   ├── cf_recommender.py          # SVD collaborative filtering
+│   │   ├── matrix_factorization.py    # ALS matrix factorization
+│   │   ├── hybrid_recommender.py      # Adaptive hybrid system
+│   │   ├── explanation_engine.py      # Enhanced explanations
+│   │   └── cold_start.py              # Cold-start handler
+│   ├── seed_data.py                   # Database seeding script
+│   ├── test_enhanced_features.py      # Test suite
+│   ├── requirements.txt               # Python dependencies
 │   ├── Dockerfile
 │   └── .env.example
 ├── frontend/
@@ -241,8 +257,12 @@ project/
 │   ├── tsconfig.json
 │   ├── Dockerfile
 │   └── nginx.conf
+├── evaluation/
+│   └── recommendation_evaluation.ipynb
 ├── docker-compose.yml
-└── README.md
+├── README.md
+├── ENHANCED_FEATURES.md
+└── IMPROVEMENTS.md
 ```
 
 ## Technologies Used
@@ -263,23 +283,38 @@ project/
 - **Docker Compose**: Multi-container orchestration
 - **Nginx**: Web server for production frontend
 
-## Future Enhancements (Week 3-5)
+## Enhanced Features
 
-### Week 3: Hybrid Model
-- Implement collaborative filtering using matrix factorization
-- Combine content-based and collaborative filtering scores
-- Enhanced explanation module
+The system now includes advanced recommendation capabilities:
 
-### Week 4: Evaluation
-- Implement NDCG and Precision@k metrics
-- A/B testing framework
-- User study interface
+### Hybrid Recommendation System
+- **ALS Matrix Factorization**: Advanced collaborative filtering using Alternating Least Squares
+- **Adaptive Weighting**: Dynamically adjusts content/collaborative balance based on user experience
+- **Diversity Boosting**: Prevents filter bubbles by ensuring recommendation variety
 
-### Week 5: Advanced Features
-- Cold-start problem handling
-- Diversity and serendipity in recommendations
-- Real-time model updates based on feedback
-- Demographic-based filtering
+### Enhanced Explanations
+- Multi-faceted reasoning combining interests, grades, and social proof
+- Explains why each program is recommended with multiple supporting factors
+- Context-aware generation based on user history
+
+### Transparency Features
+- See your recommendation strategy: `/students/{id}/recommendation-strategy`
+- Discover similar programs: `/programs/{id}/similar`
+- Understand how weights are calculated
+
+### Cold-Start Handling
+- Interest-based matching for new users
+- Popularity-based fallback when needed
+- Smooth transition to personalized recommendations
+
+For detailed documentation, see [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md)
+
+### Test the Enhanced Features
+
+```bash
+cd backend
+python3 test_enhanced_features.py
+```
 
 ## Troubleshooting
 
